@@ -1,26 +1,20 @@
 SHELL = bash
-
 psql = psql
-
 schema = oa
-
 FILES =
-
 space = $() $()
 
 .PHONY: default load load-% init clean
 
 default: load
 
+region = $(word 2,$(subst /,$(space),$(1)))
+
 # Load a file inside the zip without unzipping the whole thing
 # command has the format load-COUNTRY/REGION/file.csv
 define load_recipe
-$(addprefix load-,$(1)): load-%.csv: $(2)
-	$$(eval region := $$(word 2,$$(subst /,$(space),$$(*D))))
-	$(psql) -q -v schema=$(schema) -v region=$$(region) -f sql/trigger-region.sql
-	$(psql) -c "\copy oa.address (lon, lat, number, street, unit, city, district, region, postcode, id, hash) \
-	FROM PROGRAM 'unzip -p $$< $$*.csv' CSV HEADER"
-	$(psql) -q -c "DROP TRIGGER IF EXISTS oa_set_region ON $(schema).address;"
+$(addprefix load-,$(1)): load-%: $(2)
+	$(psql) -f sql/copy.sql -v schema=$(schema) -v region=$$(call region,$$(*D)) -v zip=$$< -v file=$$*
 endef
 
 # get the CSV files in a single zip
